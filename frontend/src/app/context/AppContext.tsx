@@ -1,0 +1,122 @@
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { Class, Exam, Submission, User } from '../data/types';
+import {
+  getClassById,
+  getExamById,
+  getStudentSubmission,
+  getSubmissionsByExam,
+  getSubmissionsByStudent,
+  getUserById,
+} from './app-context.selectors';
+import { persistStoredUser, readStoredUser } from './app-context.storage';
+import type { AppContextType } from './app-context.types';
+import { createAuthDomain } from './domains/auth-domain';
+import { createClassDomain } from './domains/class-domain';
+import { createExamDomain } from './domains/exam-domain';
+import { createSubmissionDomain } from './domains/submission-domain';
+import { createUserDomain } from './domains/user-domain';
+
+const AppContext = createContext<AppContextType | null>(null);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser());
+  const [apiLoading, setApiLoading] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+
+  useEffect(() => {
+    persistStoredUser(currentUser);
+  }, [currentUser]);
+
+  const authDomain = createAuthDomain({
+    setCurrentUser,
+    setApiLoading,
+    setUsers,
+    setClasses,
+    setExams,
+    setSubmissions,
+  });
+
+  const userDomain = createUserDomain({
+    currentUser,
+    setCurrentUser,
+    setApiLoading,
+    setUsers,
+    setClasses,
+    setExams,
+    setSubmissions,
+  });
+
+  const classDomain = createClassDomain({
+    classes,
+    users,
+    setCurrentUser,
+    setApiLoading,
+    setUsers,
+    setClasses,
+    setExams,
+    setSubmissions,
+  });
+
+  const examDomain = createExamDomain({
+    setExams,
+  });
+
+  const submissionDomain = createSubmissionDomain({
+    exams,
+    setSubmissions,
+  });
+
+  useEffect(() => {
+    void authDomain.loadFromApi();
+    // Intentionally run once on mount to restore authenticated data from storage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const value: AppContextType = {
+    currentUser,
+    apiLoading,
+    login: authDomain.login,
+    logout: authDomain.logout,
+    register: authDomain.register,
+    users,
+    classes,
+    exams,
+    submissions,
+    addUser: userDomain.addUser,
+    updateUser: userDomain.updateUser,
+    deleteUser: userDomain.deleteUser,
+    addClass: classDomain.addClass,
+    updateClass: classDomain.updateClass,
+    deleteClass: classDomain.deleteClass,
+    enrollStudent: classDomain.enrollStudent,
+    removeStudentFromClass: classDomain.removeStudentFromClass,
+    joinClassByCode: classDomain.joinClassByCode,
+    leaveClass: classDomain.leaveClass,
+    addExam: examDomain.addExam,
+    updateExam: examDomain.updateExam,
+    deleteExam: examDomain.deleteExam,
+    submitExam: submissionDomain.submitExam,
+    gradeSubmission: submissionDomain.gradeSubmission,
+    getUserById: (id: string) => getUserById(users, id),
+    getClassById: (id: string) => getClassById(classes, id),
+    getExamById: (id: string) => getExamById(exams, id),
+    getSubmissionsByStudent: (studentId: string) => getSubmissionsByStudent(submissions, studentId),
+    getSubmissionsByExam: (examId: string) => getSubmissionsByExam(submissions, examId),
+    getStudentSubmission: (examId: string, studentId: string) =>
+      getStudentSubmission(submissions, examId, studentId),
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
+
+  return context;
+};
