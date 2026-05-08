@@ -1,0 +1,91 @@
+services:
+  - type: web
+    name: examhub-api
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: ./docker/backend/Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - api/**
+        - backend/**
+        - docker/backend/**
+        - .dockerignore
+        - render.yaml
+      ignoredPaths:
+        - frontend/**
+        - docs/**
+    envVars:
+      - fromGroup: examhub-aiven-mysql
+      - fromGroup: examhub-render-runtime
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_TEACHER_EMAIL
+        sync: false
+      - key: SEED_TEACHER_PASSWORD
+        sync: false
+      - key: SEED_STUDENT_EMAIL
+        sync: false
+      - key: SEED_STUDENT_PASSWORD
+        sync: false
+  - type: cron
+    name: examhub-log-retention
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: ./docker/backend/Dockerfile
+    dockerCommand: php /var/www/html/backend/scripts/purge_log_retention.php
+    schedule: "0 0 * * *"
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - api/**
+        - backend/**
+        - docker/backend/**
+        - .dockerignore
+        - render.yaml
+      ignoredPaths:
+        - frontend/**
+        - docs/**
+    envVars:
+      - fromGroup: examhub-aiven-mysql
+      - fromGroup: examhub-render-runtime
+
+envVarGroups:
+  - name: examhub-aiven-mysql
+    envVars:
+      # Aiven for MySQL connection values from the service overview.
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: DB_SSL_MODE
+        value: verify-ca
+      # Absolute path to the Aiven CA certificate file, for example /etc/secrets/aiven-ca.pem.
+      - key: DB_SSL_CA
+        sync: false
+      # Set to DB_NAME when app and logs tables share one Aiven MySQL database.
+      - key: LOG_DB_NAME
+        sync: false
+  - name: examhub-render-runtime
+    envVars:
+      - key: APP_JWT_SECRET
+        generateValue: true
+      - key: APP_ENCRYPTION_KEY
+        generateValue: true
+      - key: AUTH_TOKEN_TTL_SECONDS
+        value: "28800"
+      - key: LOG_RETENTION_DAYS
+        value: "90"
+      - key: CORS_ALLOW_ALL
+        value: "false"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false

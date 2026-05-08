@@ -1,0 +1,9 @@
+backend/.env
+backend/vendor/
+frontend/.env
+frontend/node_modules/
+frontend/dist/
+frontend/frontend-dev.log
+frontend/frontend-dev.err
+frontend/playwright-report/
+frontend/test-results/
